@@ -1,0 +1,230 @@
+﻿@using VirtualMechanic.Core.ViewModels
+@model RequestSubmissionViewModel
+
+@{
+    ViewData["Title"] = "Request Roadside Assistance";
+    Layout = "_Layout";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-wrench-adjustable-circle"></i> Request Assistance</h4>
+                </div>
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <h5 class="fw-bold">Travel Charges by Distance</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr><th>Distance (km)</th><th>Travel Charge (Rs.)</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>0 - 2</td><td>100</td></tr>
+                                <tr><td>2.1 - 5</td><td>200</td></tr>
+                                <tr><td>5.1 - 10</td><td>300</td></tr>
+                                <tr><td>10+</td><td>500</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form asp-action="SubmitRequest" method="post" id="requestForm">
+                        <div asp-validation-summary="All" class="text-danger small"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="ServiceType" class="form-label fw-bold">Service Required</label>
+                            <select asp-for="ServiceType" class="form-select" required onchange="updateCostSummary()">
+                                <option value="">-- Select Service --</option>
+                                <option value="Flat Tyre" data-price="300">Flat Tyre (Rs. 300+)</option>
+                                <option value="Dead Battery" data-price="500">Dead Battery (Rs. 500+)</option>
+                                <option value="Engine Heat" data-price="1000">Engine Overheating (Rs. 1000+)</option>
+                                <option value="Towing" data-price="2000">Towing Service (Rs. 2000+)</option>
+                                <option value="Other" data-price="500">Other / General (Rs. 500+)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="ProblemDescription" class="form-label">Additional Notes</label>
+                            <textarea asp-for="ProblemDescription" class="form-control" rows="2" placeholder="e.g. Near the blue shop..."></textarea>
+                        </div>
+
+                        <input type="hidden" asp-for="Latitude" id="latitudeInput" />
+                        <input type="hidden" asp-for="Longitude" id="longitudeInput" />
+
+                        <div class="alert alert-warning p-2 small" id="locMsg">
+                            <i class="bi bi-geo-alt"></i>
+                            <strong>Step 1:</strong> Detect your location or manually adjust the marker
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-secondary" id="btnLoc" onclick="startLocationScan()">
+                                <i class="bi bi-geo"></i> Detect My Location
+                            </button>
+                            <button type="submit" id="btnSubmit" class="btn btn-success" disabled>
+                                Find Nearest Mechanic
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body p-3">
+                    <div class="mb-2">
+                        <input type="text" id="searchLocation" class="form-control" placeholder="Search location manually">
+                        <button class="btn btn-sm btn-primary mt-2" onclick="searchLocation()">Search</button>
+                    </div>
+
+                    <div id="map" style="height:545px;width:100%;"></div>
+
+       
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script>
+        var map = L.map('map').setView([31.5204, 74.3587], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        var marker = null;
+        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        const REQUIRED_ACCURACY = 50;
+        const INITIAL_ACCEPTABLE_ACCURACY = 200;
+        var selectedServiceCharge = 0;
+        var distanceKm = 0;
+
+        function startLocationScan() {
+            const msg = document.getElementById('locMsg');
+            const btn = document.getElementById('btnLoc');
+            btn.disabled = true;
+            msg.className = "alert alert-info p-2 small";
+            msg.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Detecting location...';
+
+            if (!navigator.geolocation) { failLocation("Geolocation not supported."); return; }
+
+            navigator.geolocation.getCurrentPosition(onPosition, onError, {
+                enableHighAccuracy: isMobile,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        }
+
+        function onPosition(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const acc = position.coords.accuracy;
+            const msg = document.getElementById('locMsg');
+            const btn = document.getElementById('btnLoc');
+
+            if (!marker && acc <= INITIAL_ACCEPTABLE_ACCURACY) { applyLocation(lat, lng, "Initial location detected. Improving accuracy..."); }
+
+            if (acc <= REQUIRED_ACCURACY) {
+                applyLocation(lat, lng, `Location locked ±${Math.round(acc)}m`);
+                btn.disabled = false;
+                return;
+            }
+
+            msg.innerHTML = `<div class="spinner-border spinner-border-sm"></div> Improving accuracy... Current ±${Math.round(acc)}m`;
+        }
+
+        function onError(err) { failLocation(err.message); }
+
+        function failLocation(message) {
+            const msg = document.getElementById('locMsg');
+            const btn = document.getElementById('btnLoc');
+            btn.disabled = false;
+            msg.className = "alert alert-danger p-2 small";
+            msg.innerHTML = `Location error: ${message}. Please drag the marker manually.`;
+            enableManualMarker();
+        }
+
+        function applyLocation(lat, lng, statusMessage) {
+            setInputs(lat, lng);
+            placeMarker(lat, lng);
+            map.setView([lat, lng], 17);
+            document.getElementById('btnSubmit').disabled = false;
+
+            const msg = document.getElementById('locMsg');
+            msg.className = "alert alert-success p-2 small";
+            msg.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${statusMessage}`;
+
+            updateCostSummary();
+        }
+
+        function enableManualMarker() {
+            if (!marker) placeMarker(31.5204, 74.3587);
+            map.setView([31.5204, 74.3587], 13);
+        }
+
+        function placeMarker(lat, lng) {
+            if (marker) { marker.setLatLng([lat, lng]); return; }
+
+            marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            marker.bindPopup("<b>Your Location</b><br>Drag to refine").openPopup();
+
+            marker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                setInputs(pos.lat, pos.lng);
+                updateCostSummary();
+            });
+        }
+
+        function setInputs(lat, lng) {
+            document.getElementById('latitudeInput').value = lat.toFixed(6);
+            document.getElementById('longitudeInput').value = lng.toFixed(6);
+        }
+
+        function searchLocation() {
+            const query = document.getElementById('searchLocation').value;
+            if (!query) return alert("Enter a location to search.");
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data || data.length === 0) return alert("Location not found.");
+                    const { lat, lon } = data[0];
+                    applyLocation(parseFloat(lat), parseFloat(lon), "Location set manually via search");
+                })
+                .catch(err => alert("Error searching location: " + err));
+        }
+
+        function calculateTravelCharge(distanceKm) {
+            if (distanceKm <= 2) return 100;
+            if (distanceKm <= 5) return 200;
+            if (distanceKm <= 10) return 300;
+            return 500;
+        }
+
+        function updateCostSummary() {
+            const serviceSelect = document.querySelector('select[asp-for="ServiceType"]');
+            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+            selectedServiceCharge = parseInt(selectedOption.dataset.price) || 0;
+
+            distanceKm = 3; 
+
+            const travelCharge = calculateTravelCharge(distanceKm);
+            const total = travelCharge + selectedServiceCharge;
+
+            const tbody = document.querySelector("#costTable tbody");
+            tbody.innerHTML = `
+                <tr>
+                    <td>${distanceKm.toFixed(1)}</td>
+                    <td>${travelCharge}</td>
+                    <td>${selectedServiceCharge}</td>
+                    <td>${total}</td>
+                </tr>
+            `;
+        }
+    </script>
+
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

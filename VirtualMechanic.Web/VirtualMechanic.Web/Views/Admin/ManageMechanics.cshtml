@@ -1,0 +1,64 @@
+﻿@using VirtualMechanic.Core.Models
+@model IEnumerable<Mechanic>
+
+@{
+    ViewData["Title"] = "Manage Mechanics";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Manage Mechanics</h2>
+        <a asp-action="Dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Specialties</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var mechanic in Model)
+                    {
+                        <tr>
+                            <td>@mechanic.Name</td>
+                            <td>@mechanic.Email</td>
+                            <td>@mechanic.Phone</td>
+                            <td>@mechanic.Specialty</td>
+                            <td>
+                                @if (mechanic.Status == "Available")
+                                {
+                                    <span class="badge bg-success">Available</span>
+                                }
+                                else
+                                {
+
+                                    <span class="badge bg-warning text-dark">@mechanic.Status</span>
+                                }
+                            </td>
+                            <td>
+                                <form asp-action="DeleteMechanic" method="post" onsubmit="return confirm('Are you sure you want to delete this mechanic? This cannot be undone.');">
+                                    <input type="hidden" name="id" value="@mechanic.MechanicId" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

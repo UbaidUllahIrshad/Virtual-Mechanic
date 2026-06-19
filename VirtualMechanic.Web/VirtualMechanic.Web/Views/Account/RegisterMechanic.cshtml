@@ -1,0 +1,95 @@
+﻿@using VirtualMechanic.Core.ViewModels
+@model RegisterMechanicViewModel
+
+@{
+    ViewData["Title"] = "Mechanic Registration";
+    Layout = "_Layout";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-success text-white text-center">
+                    <h3 class="font-weight-light my-2">Mechanic Registration</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-center text-muted mb-4">Join as a Service Provider.</p>
+
+                    <form asp-action="RegisterMechanic" method="post">
+                        <div asp-validation-summary="All" class="text-danger small"></div>
+
+                        <!-- 1. Standard Fields -->
+                        <div class="mb-3">
+                            <label asp-for="Name" class="form-label">Full Name / Shop Name</label>
+                            <input asp-for="Name" class="form-control" placeholder="e.g. Ali Auto Workshop" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Phone" class="form-label">Phone Number</label>
+                            <input asp-for="Phone" class="form-control" placeholder="0300-1234567" />
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label">Email Address</label>
+                            <input asp-for="Email" class="form-control" placeholder="mechanic@example.com" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+
+                       
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Services You Provide:</label>
+                            <div class="card p-3 bg-light">
+                              
+                                @foreach (var option in RegisterMechanicViewModel.AvailableOptionList)
+                                {
+                                    <div class="form-check">
+                                     
+                                        <input class="form-check-input" type="checkbox"
+                                               name="SelectedSpecialties" value="@option" id="@option">
+                                        <label class="form-check-label" for="@option">
+                                            @option
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                            <div class="form-text text-muted small">Check all that apply. This helps the system match you to client requests.</div>
+                            <span asp-validation-for="SelectedSpecialties" class="text-danger"></span>
+                        </div>
+
+                  
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="Password" class="form-label">Password</label>
+                                <input asp-for="Password" class="form-control" placeholder="Create password" />
+                                <span asp-validation-for="Password" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="ConfirmPassword" class="form-label">Confirm Password</label>
+                                <input asp-for="ConfirmPassword" class="form-control" placeholder="Confirm password" />
+                                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">Register & Go Online</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <div class="small">
+                        <a asp-action="Register">Back to Role Selection</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

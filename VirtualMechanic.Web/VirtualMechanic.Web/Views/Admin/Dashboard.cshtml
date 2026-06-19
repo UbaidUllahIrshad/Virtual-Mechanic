@@ -1,0 +1,140 @@
+﻿@using VirtualMechanic.Core.Models
+@using VirtualMechanic.Core.ViewModels
+@model IEnumerable<RequestDashboardItemViewModel>
+
+@{
+    ViewData["Title"] = "Admin Request Dashboard";
+    Layout = "_Layout";
+    var mechanics = ViewBag.AvailableMechanics as List<Mechanic>;
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-secondary">Admin Control Panel</h2>
+        <div>
+            <span class="badge bg-light text-muted border me-2" title="Page will refresh automatically">
+                <i class="bi bi-clock-history"></i> Refreshing in <span id="refreshTimer">10</span>s
+            </span>
+            <span class="badge bg-warning text-dark me-2">Pending: @Model.Count(x => x.Status == "Pending")</span>
+            <span class="badge bg-info text-dark">Assigned: @Model.Count(x => x.Status == "Assigned")</span>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="table-responsive shadow-sm bg-white rounded p-3">
+        <table class="table table-hover align-middle">
+            <thead class="bg-dark text-white">
+                <tr>
+                    <th>ID</th>
+                    <th>Client Info</th>
+                    <th>Service / Notes</th>
+                    <th>Status / Bill</th>
+                    <th>Assignment Action</th>
+                    <th>Control</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">No active requests found.</td>
+                    </tr>
+                }
+
+                @foreach (var item in Model)
+                {
+                    <tr class="@(item.Status == "Pending" ? "table-warning" : "")">
+                        <td>@item.RequestId</td>
+                        <td>
+                            <strong>@item.ClientName</strong><br />
+                            <small class="text-muted"><a href="tel:@item.ClientPhone">@item.ClientPhone</a></small>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark">@item.Problem</span><br />
+                            @if (!string.IsNullOrEmpty(item.ProblemDescription))
+                            {
+                                <small class="text-muted">Notes: @item.ProblemDescription</small>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @(item.Status == "Pending" ? "bg-warning text-dark" : item.Status == "Assigned" ? "bg-info text-dark" : "bg-success")">
+                                @item.Status
+                            </span><br />
+                            <small class="text-danger">@item.ETA</small>
+                        </td>
+                        <td>
+                            @if (item.Status == "Pending")
+                            {
+                                <form asp-action="AssignMechanic" method="post" class="d-flex flex-column gap-1">
+                                    <input type="hidden" name="requestId" value="@item.RequestId" />
+
+                                    <select name="mechanicId" class="form-select form-select-sm" style="width: 100%;" required>
+                                        <option value="">Select Mechanic...</option>
+                                        @if (mechanics != null)
+                                        {
+                                            @foreach (var mech in mechanics)
+                                            {
+                                                <option value="@mech.MechanicId">@mech.Name (@mech.Specialty)</option>
+                                            }
+                                        }
+                                    </select>
+
+                                    <button type="submit" class="btn btn-sm btn-primary mt-1">Assign</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column">
+                                    <span class="text-muted small">Assigned to:</span>
+                                    <strong>@item.MechanicName</strong>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            <form asp-action="CancelRequest" method="post" onsubmit="return confirm('WARNING: Cancel request #@item.RequestId?');">
+                                <input type="hidden" name="id" value="@item.RequestId" />
+                                <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // === ADMIN AUTO-REFRESH SCRIPT ===
+        document.addEventListener("DOMContentLoaded", function() {
+            var timeLeft = 10;
+            var timerElem = document.getElementById('refreshTimer');
+
+            // Countdown timer
+            setInterval(function() {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    if(timerElem) timerElem.innerText = timeLeft;
+                } else {
+                    // Reload page
+                    window.location.reload();
+                }
+            }, 1000);
+        });
+    </script>
+}

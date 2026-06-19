@@ -1,0 +1,237 @@
+﻿@using VirtualMechanic.Core.ViewModels
+@using System.Globalization
+@model IEnumerable<RequestDashboardItemViewModel>
+
+@{
+    ViewData["Title"] = "Mechanic Job Board";
+    Layout = "_Layout";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-success fw-bold"><i class="bi bi-wrench-adjustable"></i> Mechanic Job Board</h2>
+        <span id="locationStatus" class="badge bg-secondary">📍 Initializing GPS...</span>
+    </div>
+
+    <div id="dashboardContent">
+        @* --- ACTIVE JOB  --- *@
+        <div id="jobContainer">
+            @if (Model != null && Model.Any())
+            {
+                <div class="row">
+                    @foreach (var offer in Model)
+                    {
+                        <div class="col-md-6 mb-4">
+                            <div class="card shadow h-100 border-warning">
+                                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                    <strong>Request #@offer.RequestId</strong>
+                                    <span class="badge bg-dark">@offer.Distance</span>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary fw-bold">@offer.Problem</h5>
+                                    @if (!string.IsNullOrEmpty(offer.ProblemDescription))
+                                    {
+                                        <p class="small text-muted bg-light p-2">"@offer.ProblemDescription"</p>
+                                    }
+                                    <div class="alert alert-success border-success text-center mb-3">
+                                        <small class="text-muted">Estimated Driving Time:</small><br />
+                                        <span class="fs-4 fw-bold">@offer.ETA</span>
+                                    </div>
+                                    <form asp-action="AcceptJob" method="post">
+                                        <input type="hidden" name="requestId" value="@offer.RequestId" />
+                                        <button class="btn btn-dark w-100 fw-bold py-2">Accept This Job</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info text-center py-5">
+                    <h4>Scanning for jobs...</h4>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var map, mechMarker, clientMarker;
+            var hasActiveJob = false;
+
+            // --- GPS TRACKING ---
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    function (position) {
+                        var lat = position.coords.latitude;
+                        var lng = position.coords.longitude;
+
+                        var statusBadge = document.getElementById('locationStatus');
+                        statusBadge.className = 'badge bg-success';
+                        statusBadge.innerText = '🟢 Online & Tracking (Exact)';
+
+                        $.post('/Mechanic/UpdateLocation', { lat: lat, lng: lng }, function (data) {
+                            if (!hasActiveJob && data.hasActiveJob) {
+                                hasActiveJob = true;
+                                fetchDashboard();
+                            }
+                        });
+                   
+                        if (map) {
+                            var newLatLng = [lat, lng];
+                            if (!mechMarker) {
+                                var redIcon = new L.Icon({
+                                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                    iconSize: [25, 41],
+                                    iconAnchor: [12, 41],
+                                    popupAnchor: [1, -34],
+                                    shadowSize: [41, 41]
+                                });
+                                mechMarker = L.marker(newLatLng, { icon: redIcon }).addTo(map).bindPopup("<b>You</b>");
+
+                                if (clientMarker) {
+                                    var group = new L.featureGroup([clientMarker, mechMarker]);
+                                    map.fitBounds(group.getBounds().pad(0.2));
+                                }
+                            } else {
+                                mechMarker.setLatLng(newLatLng);
+                            }
+                        }
+                    },
+                    function (error) {
+                        console.error(error);
+                        var statusBadge = document.getElementById('locationStatus');
+                        statusBadge.className = 'badge bg-danger';
+                        statusBadge.innerText = '🔴 GPS Error: ' + error.message;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+
+            function fetchDashboard() {
+                $.getJSON('/Mechanic/GetDashboardState', function (data) {
+                    var container = document.getElementById('jobContainer');
+
+                    if (data.hasActiveJob) {
+                        hasActiveJob = true;
+                        var job = data.jobData;
+
+                        container.innerHTML = `
+                        <div class="card border-primary mb-5 shadow-lg">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h4 class="mb-0"><i class="bi bi-person-workspace"></i> CURRENT JOB #${job.requestId}</h4>
+                                <span class="badge bg-white text-primary fw-bold">IN PROGRESS</span>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row">
+                                    <div class="col-md-7 border-end">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h5 class="text-muted mb-1 small">Client Name</h5>
+                                                <h3 class="fw-bold">${job.clientName}</h3>
+                                            </div>
+                                            <div class="text-end">
+                                                <a href="tel:${job.clientPhone}" class="btn btn-outline-success">
+                                                    <i class="bi bi-telephone-fill"></i> Call Client
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <a href="https://www.google.com/maps/dir/?api=1&destination=${job.clientLat},${job.clientLng}&travelmode=driving"
+                                               target="_blank" class="btn btn-primary btn-sm w-100 shadow-sm">
+                                                <i class="bi bi-cursor-fill"></i> Navigate with Google Maps
+                                            </a>
+                                        </div>
+                                        <hr />
+                                        <div class="mb-3">
+                                            <p class="mb-1"><strong>Service Required:</strong></p>
+                                            <h4><span class="badge bg-info text-dark">${job.problem}</span></h4>
+                                        </div>
+                                        <div class="mt-3">
+                                            <h6 class="text-muted"><i class="bi bi-map-fill"></i> Location Map</h6>
+                                            <div id="jobMap" style="height: 300px; width: 100%; border-radius: 8px; border: 1px solid #ddd;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-5 text-center d-flex flex-column justify-content-center">
+                                        <div class="mb-4 p-4 bg-light rounded shadow-sm border">
+                                            <h6 class="text-muted text-uppercase small fw-bold">Estimated Time to Arrival</h6>
+                                            <h1 class="text-primary fw-bold display-4">${job.eta}</h1>
+                                            <hr />
+                                            <h6 class="text-muted small">Current Distance</h6>
+                                            <h5 class="fw-bold">${job.distance}</h5>
+                                        </div>
+                                        <form action="/Mechanic/ArrivedAtLocation" method="post" class="mb-2">
+                                            <input type="hidden" name="requestId" value="${job.requestId}" />
+                                            <button class="btn btn-warning w-100 fw-bold shadow-sm py-2">
+                                                <i class="bi bi-geo-alt-fill"></i> I Have Arrived
+                                            </button>
+                                        </form>
+                                        <form action="/Mechanic/CompleteJob" method="post" class="mb-3">
+                                            <input type="hidden" name="requestId" value="${job.requestId}" />
+                                            <button class="btn btn-success w-100 btn-lg shadow-sm py-3 fw-bold">
+                                                <i class="bi bi-check-circle-fill"></i> Mark Job Completed
+                                            </button>
+                                        </form>
+                                        <form action="/Mechanic/CancelJob" method="post" onsubmit="return confirm('Cancel this job?');">
+                                            <input type="hidden" name="requestId" value="${job.requestId}" />
+                                            <button class="btn btn-outline-danger w-100">Cancel Job</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+
+                        if (!map) {
+                            map = L.map('jobMap').setView([job.clientLat, job.clientLng], 13);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+                        }
+                        if (clientMarker) clientMarker.setLatLng([job.clientLat, job.clientLng]);
+                        else clientMarker = L.marker([job.clientLat, job.clientLng]).addTo(map).bindPopup("<b>Client Location</b>");
+                    } else {
+                        hasActiveJob = false;
+
+                        var html = '';
+                        data.offers.forEach(function (offer) {
+                            html += `
+                            <div class="col-md-6 mb-4">
+                                <div class="card shadow h-100 border-warning">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                        <strong>Request #${offer.requestId}</strong>
+                                        <span class="badge bg-dark">${offer.distance}</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary fw-bold">${offer.problem}</h5>
+                                        ${offer.notes ? `<p class="small text-muted bg-light p-2">"${offer.notes}"</p>` : ''}
+                                        <div class="alert alert-success border-success text-center mb-3">
+                                            <small class="text-muted">Estimated Driving Time:</small><br />
+                                            <span class="fs-4 fw-bold">${offer.eta}</span>
+                                        </div>
+                                        <form action="/Mechanic/AcceptJob" method="post">
+                                            <input type="hidden" name="requestId" value="${offer.requestId}" />
+                                            <button class="btn btn-dark w-100 fw-bold py-2">Accept This Job</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+                        container.innerHTML = `<div class="row">${html}</div>`;
+                    }
+                });
+            }
+
+            setInterval(fetchDashboard, 15000);
+        });
+    </script>
+}

@@ -1,0 +1,215 @@
+﻿@using VirtualMechanic.Core.ViewModels
+@model List<RequestDashboardItemViewModel>
+
+@{
+    ViewData["Title"] = "My Requests";
+    Layout = "_Layout";
+}
+
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-task"></i> My Active Requests</h2>
+        <a asp-controller="Client" asp-action="RequestService" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> New Request
+        </a>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="alert alert-info text-center py-5 shadow-sm">
+            <h4>No Active Requests</h4>
+            <p class="mb-0">You have no pending or in-progress service requests.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row" id="requestsContainer">
+            @foreach (var request in Model)
+            {
+                // Unique IDs for DOM elements
+                var cardId = "card-" + request.RequestId;
+                var mapId = "map-" + request.RequestId;
+                var statusBadgeId = "status-" + request.RequestId;
+                var headerId = "header-" + request.RequestId;
+                var pendingSectionId = "pending-" + request.RequestId;
+                var assignedSectionId = "assigned-" + request.RequestId;
+                var mechNameId = "mech-name-" + request.RequestId;
+                var mechPhoneId = "mech-phone-" + request.RequestId;
+                var mechPhoneLinkId = "mech-phone-link-" + request.RequestId;
+                var etaId = "eta-" + request.RequestId;
+                var distId = "dist-" + request.RequestId;
+                var cancelFormId = "cancel-form-" + request.RequestId;
+
+                <div class="col-lg-6 mb-4" id="@cardId">
+                    <div class="card shadow-lg h-100 @(request.Status == "Assigned" ? "border-success" : "border-warning")" id="card-border-@request.RequestId">
+                        <div class="card-header @(request.Status == "Assigned" ? "bg-success" : "bg-warning text-dark") text-white d-flex justify-content-between align-items-center" id="@headerId">
+                            <h5 class="mb-0">Request #@request.RequestId</h5>
+                            <span id="@statusBadgeId" class="badge bg-white @(request.Status == "Assigned" ? "text-success" : "text-dark")">@request.Status</span>
+                        </div>
+
+                        <div class="card-body">
+                     
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">Service:</small>
+                                    <p class="fw-bold">@request.Problem</p>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <small class="text-muted">Est. Bill:</small>
+                                    <p class="fw-bold text-danger" id="@etaId">@request.ETA</p>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted">Notes:</small>
+                                    <p class="small fst-italic">@(request.ProblemDescription ?? "None")</p>
+                                </div>
+                            </div>
+
+  
+                            <div id="@pendingSectionId" class="alert alert-warning text-center mb-3" style="display: @(request.Status == "Pending" ? "block" : "none")">
+                                <div class="spinner-border spinner-border-sm text-dark" role="status"></div>
+                                <p class="mb-0 mt-2">Broadcasting to mechanics...</p>
+                                <small class="text-muted">Waiting for someone to accept.</small>
+                            </div>
+
+                            <div id="@assignedSectionId" style="display: @(request.Status == "Assigned" ? "block" : "none")">
+                                <div class="alert alert-success d-flex align-items-center mb-3">
+                                    <i class="bi bi-person-badge-fill fs-3 me-3"></i>
+                                    <div>
+                                        <strong>Mechanic: <span id="@mechNameId">@request.MechanicName</span></strong><br />
+                                        <a href="tel:@request.MechanicPhone" id="@mechPhoneLinkId" class="small text-decoration-none">
+                                            <span id="@mechPhoneId">@request.MechanicPhone</span>
+                                        </a>
+                                        <br />
+                                        <small class="text-muted">Distance: <strong id="@distId">@request.Distance</strong></small>
+                                    </div>
+                                </div>
+
+       
+                                <div id="@mapId" style="height: 250px; width: 100%; border-radius: 4px;" class="mb-3 border"></div>
+                            </div>
+
+                            <div id="@cancelFormId">
+                                <form asp-action="CancelRequest" method="post" onsubmit="return confirm('Cancel Request #@request.RequestId?');">
+                                    <input type="hidden" name="requestId" value="@request.RequestId" />
+                                    <button class="btn btn-outline-danger w-100">Cancel Request</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+           
+            var maps = {};
+            var markers = {}; 
+
+            function initMap(reqId, clientLat, clientLng) {
+                if (maps[reqId]) return; 
+
+                var mapId = "map-" + reqId;
+                var mapContainer = document.getElementById(mapId);
+
+                if (mapContainer && mapContainer.offsetParent !== null) {
+                    var map = L.map(mapId).setView([clientLat, clientLng], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+                    var clientMarker = L.marker([clientLat, clientLng]).addTo(map).bindPopup("You");
+
+                    // Create mechanic marker but don't add yet
+                    var redIcon = new L.Icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+
+                    var mechMarker = L.marker([0,0], {icon: redIcon});
+
+                    maps[reqId] = { map: map, clientMarker: clientMarker, mechMarker: mechMarker, initialized: true };
+                }
+            }
+
+            function updateRequestStatus(reqId) {
+                fetch('/Client/GetMechanicLocation?requestId=' + reqId)
+                    .then(res => res.json())
+                    .then(data => {
+                        var statusBadge = document.getElementById("status-" + reqId);
+                        var header = document.getElementById("header-" + reqId);
+                        var cardBorder = document.getElementById("card-border-" + reqId);
+                        var pendingSection = document.getElementById("pending-" + reqId);
+                        var assignedSection = document.getElementById("assigned-" + reqId);
+
+                        if (data.success && data.status === "Assigned") {
+                            if(statusBadge) {
+                                statusBadge.innerText = "Assigned";
+                                statusBadge.className = "badge bg-white text-success";
+                                header.className = "card-header bg-success text-white d-flex justify-content-between align-items-center";
+                                cardBorder.className = "card shadow-lg h-100 border-success";
+                            }
+
+                            if(pendingSection) pendingSection.style.display = "none";
+                            if(assignedSection) assignedSection.style.display = "block";
+
+
+                            document.getElementById("mech-name-" + reqId).innerText = data.name;
+                            document.getElementById("mech-phone-" + reqId).innerText = "Call Mechanic"; 
+                            document.getElementById("eta-" + reqId).innerText = data.eta;
+                            document.getElementById("dist-" + reqId).innerText = data.distance;
+
+                            if (maps[reqId]) {
+                                var mapObj = maps[reqId];
+                                var newLatLng = [data.lat, data.lng];
+
+                                mapObj.mechMarker.setLatLng(newLatLng).addTo(mapObj.map).bindPopup(data.name);
+                            }
+
+                        } else if (!data.success && data.status) {
+                            if (data.status === "Completed" || data.status === "Cancelled") {
+                                window.location.reload();
+                            }
+                        }
+                    })
+                    .catch(console.error);
+            }
+
+            @foreach (var req in Model)
+            {
+                    <text>
+                    (function() {
+                        var rId = "@req.RequestId";
+                        var cLat = @(req.ClientLatitude != 0 ? req.ClientLatitude : 31.5204);
+                        var cLng = @(req.ClientLongitude != 0 ? req.ClientLongitude : 74.3587);
+                        var initialStatus = "@req.Status";
+
+                        if (initialStatus === "Assigned") {
+                            initMap(rId, cLat, cLng);
+                        }
+
+                        setInterval(function() {
+                            updateRequestStatus(rId);
+
+                            if (!maps[rId] && document.getElementById("assigned-" + rId).style.display === "block") {
+                                 initMap(rId, cLat, cLng);
+                            }
+                        }, 2000);
+                    })();
+                    </text>
+            }
+        });''
+    </script>
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

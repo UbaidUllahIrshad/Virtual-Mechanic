@@ -1,0 +1,50 @@
+﻿@using VirtualMechanic.Core.ViewModels
+@model RegisterRoleViewModel
+
+@{
+    ViewData["Title"] = "Select Account Type";
+    Layout = "_Layout";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3 class="font-weight-light my-2">Create an Account</h3>
+                </div>
+                <div class="card-body">
+                    <p class="lead text-center mb-4">Please select the type of account you need.</p>
+
+                    <form asp-action="Register" method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="mb-4">
+                            <label asp-for="SelectedRole" class="form-label fw-bold">I am a:</label>
+                            <select asp-for="SelectedRole" class="form-select form-select-lg"
+                                    asp-items="@(new SelectList(Model.AvailableRoles))">
+                                <option value="">-- Select Role --</option>
+                            </select>
+                            <span asp-validation-for="SelectedRole" class="text-danger"></span>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Continue</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <div class="small">
+                        <a asp-action="Login">Already have an account? Go to Login</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

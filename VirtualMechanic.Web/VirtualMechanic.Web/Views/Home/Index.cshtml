@@ -1,0 +1,200 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<style>
+    .container.flex-grow-1 {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .hero-section {
+        background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1487754180451-c456f719a1fc?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed; 
+        min-height: 90vh;
+        display: flex;
+        align-items: center;
+        width: 100vw;
+        margin-left: calc(-50vw + 50%); /
+        margin-top: -16px;
+    }
+
+    .hover-effect {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+        .hover-effect:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        }
+
+    .service-card {
+        transition: border-color 0.3s ease;
+        border-bottom: 3px solid transparent;
+    }
+
+        .service-card:hover {
+            border-bottom: 3px solid #ffc107 !important;
+            background-color: #f8f9fa;
+        }
+
+    .lift-on-hover:hover {
+        transform: translateY(-2px);
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 1s ease-in;
+    }
+
+    .animate-fade-in-delay {
+        animation: fadeIn 1.5s ease-in;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="hero-section">
+    <div class="container text-center text-white position-relative" style="z-index: 2;">
+        <h1 class="display-2 fw-bold mb-3 animate-fade-in">Stuck on the Road?</h1>
+        <p class="fs-3 mb-5 animate-fade-in-delay">Get instant roadside assistance from nearby mechanics.<br>Fast, reliable, and transparent pricing.</p>
+
+        @if (!User.Identity!.IsAuthenticated)
+        {
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                <a asp-controller="Account" asp-action="Register" class="btn btn-warning btn-lg px-5 py-3 fw-bold rounded-pill text-dark shadow lift-on-hover">
+                    Get Started
+                </a>
+                <a asp-controller="Account" asp-action="Login" class="btn btn-outline-light btn-lg px-5 py-3 rounded-pill shadow lift-on-hover">
+                    Log In
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                @if (User.IsInRole("Client"))
+                {
+                    <a asp-controller="Client" asp-action="RequestService" class="btn btn-success btn-lg px-5 py-3 fw-bold rounded-pill shadow lift-on-hover">
+                        <i class="bi bi-geo-alt-fill"></i> Request Help Now
+                    </a>
+                }
+                else if (User.IsInRole("Mechanic"))
+                {
+                    <a asp-controller="Mechanic" asp-action="Dashboard" class="btn btn-primary btn-lg px-5 py-3 fw-bold rounded-pill shadow lift-on-hover">
+                        <i class="bi bi-speedometer2"></i> Go to Job Board
+                    </a>
+                }
+                else if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Admin" asp-action="Dashboard" class="btn btn-danger btn-lg px-5 py-3 fw-bold rounded-pill shadow lift-on-hover">
+                        <i class="bi bi-shield-lock-fill"></i> Admin Dashboard
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="container my-5 py-5">
+    <div class="row text-center g-4">
+
+        <div class="col-lg-4">
+            <div class="card h-100 border-0 shadow-sm p-4 hover-effect bg-white">
+                <div class="card-body">
+                    <div class="text-primary mb-3">
+                        <i class="bi bi-lightning-charge-fill display-4"></i>
+                    </div>
+                    <h3 class="card-title h4 fw-bold">Fast Response</h3>
+                    <p class="card-text text-muted">Our smart algorithm matches you with the nearest available mechanic instantly.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card h-100 border-0 shadow-sm p-4 hover-effect bg-white">
+                <div class="card-body">
+                    <div class="text-success mb-3">
+                        <i class="bi bi-cash-coin display-4"></i>
+                    </div>
+                    <h3 class="card-title h4 fw-bold">Transparent Pricing</h3>
+                    <p class="card-text text-muted">Know the estimated cost before you book. Fair pricing based on service type.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card h-100 border-0 shadow-sm p-4 hover-effect bg-white">
+                <div class="card-body">
+                    <div class="text-warning mb-3">
+                        <i class="bi bi-map-fill display-4"></i>
+                    </div>
+                    <h3 class="card-title h4 fw-bold">Real-Time Tracking</h3>
+                    <p class="card-text text-muted">Watch your assigned mechanic approach on a live map.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mb-5 pb-5">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold display-5">Our Services</h2>
+        <p class="text-muted fs-5">We handle all common roadside emergencies.</p>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-3">
+            <div class="card text-center h-100 border-0 shadow-sm service-card">
+                <div class="card-body">
+                    <i class="bi bi-disc text-secondary fs-1 mb-3"></i>
+                    <h5 class="card-title fw-bold">Flat Tyre</h5>
+                    <p class="text-muted small">Puncture repair and spare wheel replacement.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center h-100 border-0 shadow-sm service-card">
+                <div class="card-body">
+                    <i class="bi bi-battery-charging text-danger fs-1 mb-3"></i>
+                    <h5 class="card-title fw-bold">Dead Battery</h5>
+                    <p class="text-muted small">Jump start services and new battery installation.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center h-100 border-0 shadow-sm service-card">
+                <div class="card-body">
+                    <i class="bi bi-thermometer-high text-warning fs-1 mb-3"></i>
+                    <h5 class="card-title fw-bold">Engine Heat</h5>
+                    <p class="text-muted small">Coolant refill and immediate overheating diagnostics.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center h-100 border-0 shadow-sm service-card">
+                <div class="card-body">
+                    <i class="bi bi-truck text-dark fs-1 mb-3"></i>
+                    <h5 class="card-title fw-bold">Towing</h5>
+                    <p class="text-muted small">Safe towing to the nearest workshop or your home.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
